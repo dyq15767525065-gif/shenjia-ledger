@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0e7a4f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="身家账本">
+<meta name="description" content="身家账本——每天记好账，看清每个账户，随时知道自己的身家。数据仅存本机。">
+<title>身家账本</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app">
+  <main id="main"></main>
+  <button id="fab" aria-label="记一笔">＋</button>
+  <nav id="tabbar">
+    <button class="tab active" data-act="tab" data-id="home" data-tab="home"><span class="tab-ic">🏠</span><span class="tab-tx">总览</span></button>
+    <button class="tab" data-act="tab" data-id="ledger" data-tab="ledger"><span class="tab-ic">📖</span><span class="tab-tx">明细</span></button>
+    <span class="fab-slot" aria-hidden="true"></span>
+    <button class="tab" data-act="tab" data-id="stats" data-tab="stats"><span class="tab-ic">📈</span><span class="tab-tx">统计</span></button>
+    <button class="tab" data-act="tab" data-id="accounts" data-tab="accounts"><span class="tab-ic">👛</span><span class="tab-tx">账户</span></button>
+    <button class="tab" data-act="tab" data-id="me" data-tab="me"><span class="tab-ic">⚙️</span><span class="tab-tx">我的</span></button>
+  </nav>
+  <div id="sheet-mask" class="hidden"></div>
+  <section id="sheet" class="hidden" role="dialog" aria-modal="true"></section>
+  <div id="toast" class="hidden"><span id="toast-msg"></span><button id="toast-btn" class="hidden"></button></div>
+  <input type="file" id="file-import" accept=".json,application/json" class="hidden">
+</div>
+<script src="app.js"></script>
+</body>
+</html>
