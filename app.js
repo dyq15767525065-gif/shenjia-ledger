@@ -1,4 +1,4 @@
-const APP_VERSION = '0.6.0';
+const APP_VERSION = '0.7.0';
 const APP_NAME = '身家账本';
 
 const KINDS = {
@@ -45,6 +45,12 @@ function fmtFen(fen){
   const cents = String(n % 100).padStart(2, '0');
   const grouped = String(yuan).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return sign + grouped + '.' + cents;
+}
+
+// 金额显示：负号置于货币符号之前（-¥1.00），杜绝 ¥-1.00
+function yuan(fen){
+  const n = Math.round(Number(fen) || 0);
+  return (n < 0 ? '-' : '') + '¥' + fmtFen(Math.abs(n));
 }
 
 function parseAmountToFen(str){
@@ -168,6 +174,7 @@ const DB = {
 
 const S = {
   tab: 'home',
+  lsView: 'list',
   month: null,
   filterAcc: null,
   accounts: [],
@@ -589,10 +596,10 @@ function renderHome(){
     '<div class="hero-cell"><div class="hl">总资产</div><div class="hv num">¥' + fmtFen(t.asset) + '</div></div>' +
     '<div class="hero-cell"><div class="hl">总负债</div><div class="hv num">¥' + fmtFen(t.debt) + '</div></div>' +
     '</div>' +
-    '<div class="hero-grid g3" style="margin-top:10px">' +
+    '<div class="hero-grid g3">' +
     '<div class="hero-cell"><div class="hl">本月收入</div><div class="hv num">¥' + fmtFen(t.mInc) + '</div></div>' +
     '<div class="hero-cell"><div class="hl">本月支出</div><div class="hv num">¥' + fmtFen(t.mExp) + '</div></div>' +
-    '<div class="hero-cell"><div class="hl">本月结余</div><div class="hv num">¥' + fmtFen(t.mInc - t.mExp) + '</div></div>' +
+    '<div class="hero-cell"><div class="hl">本月结余</div><div class="hv num">' + yuan(t.mInc - t.mExp) + '</div></div>' +
     '</div></div>';
 
   html += renderFireCard();
@@ -649,9 +656,19 @@ function monthTxStats(){
   return {inc, exp, bal: inc - exp};
 }
 
+// 「明细 / 统计」合并为一个导航项，内部用分段控件切换两种看法
+// （同一份流水的列表视图与图表视图，合并后导航 5 格左右对称）
+function lsSwitcher(){
+  return '<div class="seg ls-seg">' +
+    '<button class="' + (S.lsView === 'list' ? 'on' : '') + '" data-act="ls-view" data-id="list">流水</button>' +
+    '<button class="' + (S.lsView === 'chart' ? 'on' : '') + '" data-act="ls-view" data-id="chart">统计</button>' +
+    '</div>';
+}
+
 function renderLedger(){
   const st = monthTxStats();
-  let html = '<div class="mnav">' +
+  let html = lsSwitcher();
+  html += '<div class="mnav">' +
     '<button data-act="month-prev">‹</button>' +
     '<b>' + monthLabel(S.month) + '</b>' +
     '<button data-act="month-next" ' + (S.month >= curMonthKey() ? 'disabled' : '') + '>›</button>' +
@@ -660,7 +677,7 @@ function renderLedger(){
   html += '<div class="stats">' +
     '<div class="stat"><div class="sl">支出</div><div class="sv num">¥' + fmtFen(st.exp) + '</div></div>' +
     '<div class="stat"><div class="sl">收入</div><div class="sv num">¥' + fmtFen(st.inc) + '</div></div>' +
-    '<div class="stat"><div class="sl">结余</div><div class="sv num" style="color:' + (st.bal < 0 ? 'var(--red)' : 'var(--brand)') + '">¥' + fmtFen(st.bal) + '</div></div>' +
+    '<div class="stat"><div class="sl">结余</div><div class="sv num" style="color:' + (st.bal < 0 ? 'var(--danger)' : 'var(--pos)') + '">' + yuan(st.bal) + '</div></div>' +
     '</div>';
 
   let chips = '<div class="acc-row"><button class="acc-chip ' + (S.filterAcc === null ? 'sel' : '') + '" data-act="filter-acc" data-id="all">全部</button>';
@@ -678,7 +695,7 @@ function renderLedger(){
 
   html += '<div class="card">';
   if(list.length === 0){
-    html += '<div class="empty"><span class="ei">📭</span>本月还没有流水<br>点右下角 ＋ 记一笔</div>';
+    html += '<div class="empty"><span class="ei">📭</span>本月还没有流水<br>点下方 ＋ 记一笔</div>';
   } else {
     const byDay = {};
     list.forEach(tx => { (byDay[tx.date] = byDay[tx.date] || []).push(tx); });
@@ -755,7 +772,7 @@ function renderMe(){
     '<button class="row" data-act="seed-load"><span class="ric">🎁</span>' +
     '<span class="rmid"><span class="rtitle">载入示例数据</span><span class="rsub">假数据占位，先熟悉流程（会覆盖当前数据）</span></span></button>' +
     '<button class="row" data-act="wipe"><span class="ric">🗑️</span>' +
-    '<span class="rmid"><span class="rtitle" style="color:var(--red)">清空全部数据</span><span class="rsub">开始真实记账前先备份导出</span></span></button>' +
+    '<span class="rmid"><span class="rtitle" style="color:var(--danger)">清空全部数据</span><span class="rsub">开始真实记账前先备份导出</span></span></button>' +
     '</div>';
 
   html += '<div class="sec">安装到手机</div><div class="card">' +
@@ -765,7 +782,7 @@ function renderMe(){
       : '📱 <b>iPhone</b>：用 Safari 打开本页 → 底部分享按钮 → 添加到主屏幕<br>' +
         '🤖 <b>安卓</b>：Chrome 打开本页 → 菜单 → 安装应用<br>' +
         '💻 <b>电脑</b>：Chrome 地址栏右侧安装图标<br>' +
-        '<b style="color:var(--red)">重要</b>：装到主屏幕后数据才长期保留（iOS 对未安装的网页 7 天不用会清数据）。') +
+        '<b style="color:var(--danger)">重要</b>：装到主屏幕后数据才长期保留（iOS 对未安装的网页 7 天不用会清数据）。') +
     '</div></div>';
 
   html += '<div class="sec">关于</div><div class="card"><div class="about">' +
@@ -1038,7 +1055,7 @@ function openAccountDetail(id){
     '<span class="pill ' + (isDebt ? 'red' : '') + '">' + esc(k.label) + ' · ' + (isDebt ? '负债' : '资产') + '</span></div>' +
     '<div class="sub-l">' + (isDebt ? '当前欠款' : '当前结余') + '</div>' +
     '<div class="big-balance num ' + (isDebt || bal < 0 ? 'debt' : '') + '">' + (bal < 0 ? '-' : '') + '¥' + fmtFen(Math.abs(bal)) + '</div>' +
-    '<div class="sub-l">初始：¥' + fmtFen(acc.initialFen || 0) + (acc.note ? ' · ' + esc(acc.note) : '') + '</div>';
+    '<div class="sub-l">初始：' + yuan(acc.initialFen || 0) + (acc.note ? ' · ' + esc(acc.note) : '') + '</div>';
   if(acc.kind === 'deposit' || acc.kind === 'fund'){
     const info = depositInfo(acc);
     const lines = [];
@@ -1073,14 +1090,45 @@ function render(){
   const main = document.getElementById('main');
   let html = '';
   if(S.tab === 'home') html = renderHome();
-  else if(S.tab === 'ledger') html = renderLedger();
-  else if(S.tab === 'stats') html = renderStats();
+  else if(S.tab === 'ledger') html = S.lsView === 'chart' ? renderStats() : renderLedger();
   else if(S.tab === 'accounts') html = renderAccounts();
   else html = renderMe();
   main.innerHTML = html;
   document.querySelectorAll('#tabbar .tab').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === S.tab);
   });
+  renderBuildStamp();
+}
+
+// 版本探针：把「当前页面实际加载的是什么」直接显示出来，
+// 避免再出现「改了但看不到、靠猜是缓存」的循环。只挂在「我的」页底部，不干扰日常使用。
+// 显示：应用版本 / SW 是否接管 / 缓存名 / 实际生效的底色 / 数据来源
+async function renderBuildStamp(){
+  const old = document.getElementById('build-stamp');
+  if(S.tab !== 'me'){ if(old) old.remove(); return; }
+  if(old) old.remove();
+
+  let swInfo = 'SW 无';
+  if('serviceWorker' in navigator){
+    if(navigator.serviceWorker.controller){
+      const keys = window.caches ? await caches.keys() : [];
+      swInfo = 'SW 已接管 · 缓存 ' + (keys.length ? keys.join(', ') : '空');
+    } else {
+      swInfo = 'SW 未接管（改动直接生效）';
+    }
+  }
+  const paper = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim();
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const src = /127\.0\.0\.1|localhost/.test(location.hostname) ? '本地预览' : location.hostname;
+
+  const box = document.createElement('div');
+  box.id = 'build-stamp';
+  box.innerHTML =
+    '<b>版本 ' + APP_VERSION + '</b>' +
+    '<span>' + swInfo + '</span>' +
+    '<span>底色 --paper ' + (paper || '未定义') + (dark ? '（深色模式）' : '（浅色）') + '</span>' +
+    '<span>来源 ' + src + '</span>';
+  document.getElementById('main').appendChild(box);
 }
 
 function setTab(name){
@@ -1091,7 +1139,8 @@ function setTab(name){
 
 function handleAct(act, id){
   switch(act){
-    case 'tab': setTab(id); break;
+    case 'tab': setTab(id === 'stats' ? 'ledger' : id); if(id === 'stats'){ S.lsView = 'chart'; render(); } break;
+    case 'ls-view': S.lsView = id; render(); window.scrollTo(0, 0); break;
     case 'sheet-close': closeSheet(); break;
     case 'month-prev': S.month = monthShift(S.month, -1); loadBudget(S.month).then(render); break;
     case 'month-next': S.month = monthShift(S.month, 1); loadBudget(S.month).then(render); break;
@@ -1130,7 +1179,7 @@ function handleAct(act, id){
     case 'stat-range': S.statRange = id; render(); break;
     case 'budget-edit': openBudgetSheet(); break;
     case 'budget-save': saveBudgetFromSheet(); break;
-    case 'chart-dot': showToast(shortDay(id) + ' 身家：¥' + fmtFen(netWorthAt(id))); break;
+    case 'chart-dot': showToast(shortDay(id) + ' 身家：' + yuan(netWorthAt(id))); break;
     case 'goal-new': openGoalSheet(null); break;
     case 'goal-edit': openGoalSheet(goalById(id)); break;
     case 'goal-del': deleteGoal(id); break;
@@ -1290,8 +1339,28 @@ async function init(){
   }
 }
 
-if('serviceWorker' in navigator &&
-   (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))){
+// Service Worker 只在正式部署（https）时注册。
+//
+// 本地开发（localhost / 127.0.0.1）**完全不注册**，并主动清理历史遗留的 SW 与缓存。
+// 原因（这是 Service Worker 的经典陷阱，不是玄学）：
+//   1. SW 是缓存优先，且 install 时的预缓存请求会先被【旧 SW】拦截拿到旧文件，
+//      于是"新缓存"里装的是旧资源 —— 此时改 CACHE_VERSION 完全无效，
+//      表现就是「缓存名变了但页面永远不变」；
+//   2. 强制刷新(Shift+Reload)只绕过 SW 一次，下一次导航它又接管；
+//   3. 只要还有旧标签页被旧 SW 控制，新 SW 就一直不激活。
+// 本地开发完全不注册 SW，以上三条全部不成立，改完刷新即见。
+const IS_LOCAL_DEV = ['localhost', '127.0.0.1'].includes(location.hostname);
+
+if(IS_LOCAL_DEV){
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations()
+      .then(rs => Promise.all(rs.map(r => r.unregister())))
+      .catch(() => {});
+    if(window.caches && caches.keys){
+      caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))).catch(() => {});
+    }
+  }
+} else if('serviceWorker' in navigator && location.protocol === 'https:'){
   navigator.serviceWorker.register('sw.js').then(reg => {
     reg.addEventListener('updatefound', () => {
       const nw = reg.installing;
@@ -1315,7 +1384,7 @@ init();
 
 
 function chartColors(){
-  return ['#0E7A4F','#C9A227','#4A7FB5','#C6483F','#7E57C2','#26A69A','#EF6C00','#8D6E63','#5C8AE6','#9E9D24'];
+  return ['var(--brand)','#C9A227','#4A7FB5','#C6483F','#7E57C2','#26A69A','#EF6C00','#8D6E63','#5C8AE6','#9E9D24'];
 }
 
 function shortFen(fen){
@@ -1367,26 +1436,26 @@ function netChartSvg(points){
   const area = line + ' L' + X(points.length - 1).toFixed(1) + ',' + (h - padB) + ' L' + padL + ',' + (h - padB) + ' Z';
   let grid = '';
   [min, (min + max) / 2, max].forEach(v => {
-    grid += '<line x1="' + padL + '" y1="' + Y(v).toFixed(1) + '" x2="' + (w - padR) + '" y2="' + Y(v).toFixed(1) + '" stroke="#E7E2D6" stroke-width="1"/>' +
-      '<text x="' + (padL - 4) + '" y="' + (Y(v) + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="#707C74">' + shortFen(v) + '</text>';
+    grid += '<line x1="' + padL + '" y1="' + Y(v).toFixed(1) + '" x2="' + (w - padR) + '" y2="' + Y(v).toFixed(1) + '" stroke="var(--rule)" stroke-width="1"/>' +
+      '<text x="' + (padL - 4) + '" y="' + (Y(v) + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="var(--ink-3)">' + shortFen(v) + '</text>';
   });
   const dotStep = Math.max(1, Math.ceil(points.length / 10));
   let dots = '';
   points.forEach((p, i) => {
     if(i % dotStep !== 0 && i !== points.length - 1) return;
-    dots += '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="2.6" fill="#0E7A4F"/>' +
+    dots += '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="2.6" fill="var(--brand)"/>' +
       '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="10" fill="rgba(0,0,0,0)" data-act="chart-dot" data-id="' + p.d + '"/>';
   });
   return '<svg class="netchart" viewBox="0 0 ' + w + ' ' + h + '">' +
     '<defs><linearGradient id="ngfill" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0" stop-color="#0E7A4F" stop-opacity=".22"/>' +
-    '<stop offset="1" stop-color="#0E7A4F" stop-opacity="0"/></linearGradient></defs>' +
+    '<stop offset="0" stop-color="var(--brand)" stop-opacity=".22"/>' +
+    '<stop offset="1" stop-color="var(--brand)" stop-opacity="0"/></linearGradient></defs>' +
     grid +
     '<path d="' + area + '" fill="url(#ngfill)"/>' +
-    '<path d="' + line + '" fill="none" stroke="#0E7A4F" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '<path d="' + line + '" fill="none" stroke="var(--brand)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>' +
     dots +
-    '<text x="' + padL + '" y="' + (h - 6) + '" font-size="9" fill="#707C74">' + shortDay(points[0].d) + '</text>' +
-    '<text x="' + (w - padR) + '" y="' + (h - 6) + '" text-anchor="end" font-size="9" fill="#707C74">' + shortDay(points[points.length - 1].d) + '</text>' +
+    '<text x="' + padL + '" y="' + (h - 6) + '" font-size="9" fill="var(--ink-3)">' + shortDay(points[0].d) + '</text>' +
+    '<text x="' + (w - padR) + '" y="' + (h - 6) + '" text-anchor="end" font-size="9" fill="var(--ink-3)">' + shortDay(points[points.length - 1].d) + '</text>' +
     '</svg>';
 }
 
@@ -1399,7 +1468,7 @@ function donutSvg(items){
   };
   let segs = '';
   if(total <= 0 || items.filter(it => it.value > 0).length === 0){
-    segs = '<circle cx="' + cx + '" cy="' + cy + '" r="' + ((R + r) / 2).toFixed(1) + '" fill="none" stroke="#E7E2D6" stroke-width="' + (R - r) + '"/>';
+    segs = '<circle cx="' + cx + '" cy="' + cy + '" r="' + ((R + r) / 2).toFixed(1) + '" fill="none" stroke="var(--rule)" stroke-width="' + (R - r) + '"/>';
   } else if(items.filter(it => it.value > 0).length === 1){
     segs = '<circle cx="' + cx + '" cy="' + cy + '" r="' + ((R + r) / 2).toFixed(1) + '" fill="none" stroke="' + items[0].color + '" stroke-width="' + (R - r) + '"/>';
   } else {
@@ -1415,7 +1484,7 @@ function donutSvg(items){
     });
   }
   return '<svg class="donut" viewBox="0 0 42 42">' + segs +
-    '<text x="' + cx + '" y="' + (cy + 2.5) + '" text-anchor="middle" font-size="7.5" font-weight="700" fill="#1F2A24">' + shortFen(total) + '</text>' +
+    '<text x="' + cx + '" y="' + (cy + 2.5) + '" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--ink)">' + shortFen(total) + '</text>' +
     '</svg>';
 }
 
@@ -1483,7 +1552,8 @@ function rankRowsHtml(map, budget){
 
 function renderStats(){
   const st = monthTxStats();
-  let html = '<div class="mnav">' +
+  let html = lsSwitcher();
+  html += '<div class="mnav">' +
     '<button data-act="month-prev">‹</button>' +
     '<b>' + monthLabel(S.month) + '</b>' +
     '<button data-act="month-next" ' + (S.month >= curMonthKey() ? 'disabled' : '') + '>›</button>' +
@@ -1491,7 +1561,7 @@ function renderStats(){
   html += '<div class="stats">' +
     '<div class="stat"><div class="sl">支出</div><div class="sv num">¥' + fmtFen(st.exp) + '</div></div>' +
     '<div class="stat"><div class="sl">收入</div><div class="sv num">¥' + fmtFen(st.inc) + '</div></div>' +
-    '<div class="stat"><div class="sl">结余</div><div class="sv num" style="color:' + (st.bal < 0 ? 'var(--red)' : 'var(--brand)') + '">¥' + fmtFen(st.bal) + '</div></div>' +
+    '<div class="stat"><div class="sl">结余</div><div class="sv num" style="color:' + (st.bal < 0 ? 'var(--danger)' : 'var(--pos)') + '">' + yuan(st.bal) + '</div></div>' +
     '</div>';
 
   html += renderCalendarCard();
@@ -1659,7 +1729,7 @@ function openAdjustSheet(accId){
   openSheet(
     sheetHead('余额对账 · ' + esc(acc.name)) +
     '<div class="sheet-in">' +
-    '<div class="kv"><span class="kl">当前软件' + (isDebt ? '欠款' : '余额') + '</span><b class="num">¥' + fmtFen(bal) + '</b></div>' +
+    '<div class="kv"><span class="kl">当前软件' + (isDebt ? '欠款' : '余额') + '</span><b class="num">' + yuan(bal) + '</b></div>' +
     '<div class="f" style="margin-top:10px"><label>' + (isDebt ? '银行实际欠款（元）' : '银行实际余额（元）') + '</label>' +
     '<input id="adj-actual" inputmode="decimal" placeholder="0.00" value="' + (bal / 100) + '"></div>' +
     '<div class="f"><label>调整原因（必填）</label>' +
@@ -1700,7 +1770,7 @@ function openAdjustDetail(tx){
     '<div class="sheet-in">' +
     '<div class="kv"><span class="kl">账户</span><b>' + esc(acc ? acc.name : '') + '</b></div>' +
     '<div class="kv"><span class="kl">日期</span><b class="num">' + esc(tx.date) + '</b></div>' +
-    '<div class="kv"><span class="kl">调整额</span><b class="num" style="color:' + (tx.amountFen >= 0 ? 'var(--brand)' : 'var(--red)') + '">' +
+    '<div class="kv"><span class="kl">调整额</span><b class="num" style="color:' + (tx.amountFen >= 0 ? 'var(--pos)' : 'var(--danger)') + '">' +
     (tx.amountFen >= 0 ? '+' : '-') + '¥' + fmtFen(Math.abs(tx.amountFen)) + '</b></div>' +
     '<div class="kv"><span class="kl">原因</span><b>' + esc(tx.note || '') + '</b></div>' +
     '<div class="btn-row">' +
@@ -1845,7 +1915,7 @@ function renderGoalsCard(){
       '<span class="ric">' + (p.done ? '🎉' : '🎯') + '</span>' +
       '<span class="rmid">' +
       '<span class="rtitle">' + esc(g.name) + '</span>' +
-      '<span class="rsub num">' + (g.meter === 'asset' ? '总资产' : '净资产') + ' ¥' + fmtFen(p.now) + ' / ¥' + fmtFen(g.targetFen) + ' · ' + p.pct + '%</span>' +
+      '<span class="rsub num">' + (g.meter === 'asset' ? '总资产' : '净资产') + ' ' + yuan(p.now) + ' / ' + yuan(g.targetFen) + ' · ' + p.pct + '%</span>' +
       '<span class="goal-bar' + (p.done ? ' done' : '') + '"><i style="width:' + p.pct + '%"></i></span>' +
       '<span class="rsub eta">' + esc(eta) + '</span>' +
       '</span></button>';
@@ -1935,8 +2005,8 @@ function iouRow(a){
   return '<button class="row" data-act="acc-open" data-id="' + a.id + '">' +
     '<span class="ric">' + k.icon + '</span>' +
     '<span class="rmid"><span class="rtitle">' + esc(a.name) + '</span>' +
-    '<span class="rsub">' + (isLent ? '待收回' : '待还') + ' ¥' + fmtFen(bal) + '</span></span>' +
-    '<span class="ramt ' + (isLent ? 'exp' : 'debt') + ' num">¥' + fmtFen(bal) + '</span>' +
+    '<span class="rsub">' + (isLent ? '待收回' : '待还') + ' ' + yuan(bal) + '</span></span>' +
+    '<span class="ramt ' + (isLent ? 'exp' : 'debt') + ' num">' + yuan(bal) + '</span>' +
     '</button>';
 }
 
@@ -2095,11 +2165,11 @@ function monthlyReportText(){
   lines.push('【收支】');
   lines.push('收入 ¥' + fmtFen(st.inc) + '（' + topCatsText(cats.income, 2) + '）');
   lines.push('支出 ¥' + fmtFen(st.exp) + '（TOP：' + topCatsText(cats.expense, 3) + '）');
-  lines.push('结余 ¥' + fmtFen(st.bal) + (saveRate !== null ? ' · 结余率 ' + saveRate + '%' : ''));
+  lines.push('结余 ' + yuan(st.bal) + (saveRate !== null ? ' · 结余率 ' + saveRate + '%' : ''));
   lines.push('');
   lines.push('【身家】');
-  lines.push('月初净资产 ¥' + fmtFen(startNet));
-  lines.push('当前净资产 ¥' + fmtFen(S.totals.net) + '（' + (netDelta >= 0 ? '+' : '') + fmtFen(netDelta) + '）');
+  lines.push('月初净资产 ' + yuan(startNet));
+  lines.push('当前净资产 ' + yuan(S.totals.net) + '（' + (netDelta >= 0 ? '+' : '') + fmtFen(netDelta) + '）');
   lines.push('');
   lines.push('【其他】');
   lines.push('今年已收理财收益 ¥' + fmtFen(thisYearInterestIncome()));
@@ -2134,11 +2204,11 @@ function yearlyReportText(){
   lines.push('【全年收支】');
   lines.push('收入 ¥' + fmtFen(inc) + '（' + topCatsText(cats.income, 3) + '）');
   lines.push('支出 ¥' + fmtFen(exp) + '（TOP：' + topCatsText(cats.expense, 3) + '）');
-  lines.push('结余 ¥' + fmtFen(bal) + (saveRate !== null ? ' · 结余率 ' + saveRate + '%' : ''));
+  lines.push('结余 ' + yuan(bal) + (saveRate !== null ? ' · 结余率 ' + saveRate + '%' : ''));
   lines.push('');
   lines.push('【身家】');
-  lines.push('年初净资产 ¥' + fmtFen(yStart));
-  lines.push('当前净资产 ¥' + fmtFen(S.totals.net) + '（' + (netDelta >= 0 ? '+' : '') + fmtFen(netDelta) + '）');
+  lines.push('年初净资产 ' + yuan(yStart));
+  lines.push('当前净资产 ' + yuan(S.totals.net) + '（' + (netDelta >= 0 ? '+' : '') + fmtFen(netDelta) + '）');
   lines.push('');
   lines.push('【其他】');
   lines.push('今年已收理财收益 ¥' + fmtFen(thisYearInterestIncome()));
@@ -2747,7 +2817,7 @@ function shareSvg(showAmount){
   const area = line + ' L' + X(pts.length - 1).toFixed(1) + ',660 L60,660 Z';
   const f = fireStats();
   const rk = rankInfo();
-  const amountText = showAmount ? '¥' + fmtFen(S.totals.net) : '¥ ＊＊＊＊＊＊';
+  const amountText = showAmount ? yuan(S.totals.net) : '¥ ＊＊＊＊＊＊';
   const FONT = 'font-family="PingFang SC, Microsoft YaHei, sans-serif" ';
   const descs = rk.desc.length > 16 ? [rk.desc.slice(0, 16), rk.desc.slice(16)] : [rk.desc];
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
