@@ -1,4 +1,4 @@
-const APP_VERSION = '0.7.0';
+const APP_VERSION = '0.7.1';
 const APP_NAME = '身家账本';
 
 const KINDS = {
@@ -578,8 +578,7 @@ function accRowHtml(acc, balances){
   const isDebt = k.group === 'liability';
   return '<button class="row" data-act="acc-open" data-id="' + acc.id + '">' +
     '<span class="ric">' + k.icon + '</span>' +
-    '<span class="rmid"><span class="rtitle">' + esc(acc.name) + '</span>' +
-    '<span class="rsub">' + k.label + '</span></span>' +
+    '<span class="rmid"><span class="rtitle">' + esc(acc.name) + '</span></span>' +
     '<span class="ramt ' + (isDebt ? 'debt' : 'exp') + ' num">' +
     (isDebt ? '欠 ¥' : '¥') + fmtFen(bal) + '</span>' +
     '</button>';
